@@ -92,6 +92,8 @@ main{max-width:760px;margin:auto;padding:12px;padding-bottom:max(12px,env(safe-a
 .dial-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .dial-row button{flex:1;font-size:11px}
 
+.dial-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.refresh-btn{padding:7px 12px;font-size:11px;letter-spacing:1px;background:#1f2b47;color:var(--gold-light);border-color:var(--gold-dark)}
 /* Random call */
 .rand-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
 .rand-row label{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:900;color:var(--muted);letter-spacing:1px}
@@ -136,7 +138,7 @@ main{max-width:760px;margin:auto;padding:12px;padding-bottom:max(12px,env(safe-a
 
 <section class="panel collapsible" id="dialPanel">
   <h2><span class="h2t">DIALER</span></h2>
-  <div><span class="mode-tag" id="modeTag">NO LIST SELECTED</span></div>
+  <div class="dial-top"><span class="mode-tag" id="modeTag">NO LIST SELECTED</span><button class="refresh-btn" id="refreshBtn">⟳ REFRESH</button></div>
   <div class="now-card" id="nowCard">
     <small id="nowLabel">NEXT CALL</small>
     <div class="now-name" id="nowName">—</div>
@@ -357,6 +359,7 @@ function startRandom(){
   S.current=n; save(); render(); toast(`Random calls · (${a}) ${p}-XXXX`); dial(S.current);
 }
 $("randStart").addEventListener("click",startRandom);
+$("refreshBtn").addEventListener("click",()=>{ save(); location.reload(); });
 ["randArea","randPrefix"].forEach(id=>$(id).addEventListener("input",()=>{ $(id).value=$(id).value.replace(/\D/g,"").slice(0,3); S.rand[id==="randArea"?"area":"prefix"]=$(id).value; save(); randMaskUi(); }));
 
 function stopRerun(){ const r=S.run; if(r?.mode!=="rerun") return; S.run=S.activeList?{mode:"list",list:S.activeList}:null; S.current=null; save(); render(); toast("Rerun stopped — back to your call list."); }
