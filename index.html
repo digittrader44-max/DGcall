@@ -78,6 +78,11 @@ main{max-width:760px;margin:auto;padding:12px;padding-bottom:max(12px,env(safe-a
 .now-card{margin:10px 0;padding:16px;border-radius:13px;background:#0b1424;border:1px solid var(--border);text-align:center}
 .now-card small{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;font-weight:900}
 .now-name{font-size:18px;font-weight:900;margin-top:6px;overflow-wrap:anywhere}
+.now-addr{font-size:13px;font-weight:700;color:var(--gold-light);margin-top:4px;line-height:1.35;overflow-wrap:anywhere}
+.now-addr:empty{display:none}
+.mode-switch{display:flex;border:1px solid var(--gold-dark);border-radius:10px;overflow:hidden;margin-top:10px}
+.mode-switch button{flex:1;border:0;border-radius:0;background:#0c1424;color:var(--muted);font-size:12px;letter-spacing:1px;min-height:40px}
+.mode-switch button.on{background:linear-gradient(180deg,var(--gold-light),var(--gold-mid));color:#2a1a00}
 .now-num{font-size:28px;font-weight:900;color:var(--green);margin-top:4px;letter-spacing:1px}
 .now-sub{font-size:11px;color:var(--muted);margin-top:6px}
 .now-card.oncall{border-color:var(--green);box-shadow:0 0 14px #00e6a033}
@@ -142,10 +147,12 @@ main{max-width:760px;margin:auto;padding:12px;padding-bottom:max(12px,env(safe-a
   <div class="now-card" id="nowCard">
     <small id="nowLabel">NEXT CALL</small>
     <div class="now-name" id="nowName">—</div>
+    <div class="now-addr" id="nowAddr"></div>
     <div class="now-num" id="nowNum">—</div>
     <div class="now-sub" id="nowSub">Upload a CSV or Excel file in CALL LISTS.</div>
   </div>
   <button class="call-btn" id="callBtn">CALL</button>
+  <div class="mode-switch" id="modeSwitch"><button data-m="list">CALL LIST</button><button data-m="random">RANDOM CALL</button></div>
   <div class="out-grid">
     <button class="out-btn o-vm" data-out="VM">VOICEMAIL<small>save + call next</small></button>
     <button class="out-btn o-cb" data-out="CB">CALLBACK<small>save + call next</small></button>
@@ -256,7 +263,7 @@ function rowsToContacts(rows){
   const body=hasHeader?rows.slice(1):rows;
   const ncol=Math.max(...rows.map(r=>r.length));
   let pc=-1;
-  if(hasHeader) pc=head.findIndex(h=>/phone|mobile|cell|tel|number|contact|whatsapp/.test(h));
+  if(hasHeader){ pc=head.findIndex(h=>/phone|mobile|cell|tel\b|telephone|whatsapp/.test(h)); if(pc<0) pc=head.findIndex(h=>/number|contact/.test(h)&&!/street|house|unit|apt|zip|account|id/.test(h)); }
   if(pc<0){   // the column where most values look like phone numbers
     let best=0;
     for(let c=0;c<ncol;c++){ const n=body.filter(r=>normPhone(r[c])).length; if(n>best){ best=n; pc=c; } }
@@ -275,10 +282,18 @@ function rowsToContacts(rows){
   if(!nameCols.length){   // first text column that isn't the phone
     for(let c=0;c<ncol;c++){ if(c!==pc&&body.some(r=>/[a-z]/i.test(String(r[c]||"")))){ nameCols=[c]; break; } }
   }
+  // address: one full-address column, or street (+ unit) + city + state + zip
+  const col=(re,skip=[])=>hasHeader?head.findIndex((h,i)=>i!==pc&&!nameCols.includes(i)&&!skip.includes(i)&&re.test(h)):-1;
+  let street=col(/address(?! ?2)|^addr$|address ?1/); if(street<0) street=col(/street|addr(?! ?2)/);
+  const unit=col(/address ?2|addr ?2|apt|unit|suite/,[street]);
+  const city=col(/city|town/), stt=col(/^state$|^st$|province|region/), zip=col(/zip|postal|post ?code/);
+  const cell=(r,i)=>i>=0?String(r[i]??"").trim():"";
   const seen=new Set(), out=[];
   for(const r of body){
     const p=normPhone(r[pc]); if(!p||seen.has(p)) continue; seen.add(p);
-    out.push({p,n:nameCols.map(i=>String(r[i]??"").trim()).filter(Boolean).join(" ")});
+    const line1=[cell(r,street),cell(r,unit)].filter(Boolean).join(" "), sz=[cell(r,stt),cell(r,zip)].filter(Boolean).join(" ");
+    const a=[line1,cell(r,city),sz].filter(Boolean).join(", ");
+    out.push({p,n:nameCols.map(i=>String(r[i]??"").trim()).filter(Boolean).join(" "),a});
   }
   return out;
 }
@@ -304,7 +319,7 @@ function peekNext(){
   const r=S.run; if(!r) return null;
   if(r.mode==="list"){ const L=listById(r.list); if(!L) return null; const i=S.pos[r.list]||0; return i<L.contacts.length?{...L.contacts[i],list:L.id}:null; }
   if(r.mode==="random"){ if(!r.next) r.next=genRandom(r); return r.next?{p:r.next,n:"",list:"",src:`RANDOM (${r.area}) ${r.prefix}`}:null; }
-  if(r.mode==="rerun"){ while(r.i<r.queue.length){ const x=S.results[r.queue[r.i]]; if(x) return {p:x.p,n:x.n,list:x.list}; r.i++; } return null; }
+  if(r.mode==="rerun"){ while(r.i<r.queue.length){ const x=S.results[r.queue[r.i]]; if(x) return {p:x.p,n:x.n,a:x.a,list:x.list}; r.i++; } return null; }
   return null;
 }
 function useList(id,silent){
@@ -320,7 +335,7 @@ function outcome(code){
   const c=S.current;
   if(!c){ toast("Tap CALL first — then pick the result after the call."); return; }
   const now=Date.now(), prev=S.results[c.p];
-  S.results[c.p]={p:c.p,n:c.n||prev?.n||"",list:c.list||prev?.list||"",src:c.src||prev?.src||"",out:code,at:now,count:(prev?.count||0)+1};
+  S.results[c.p]={p:c.p,n:c.n||prev?.n||"",a:c.a||prev?.a||"",list:c.list||prev?.list||"",src:c.src||prev?.src||"",out:code,at:now,count:(prev?.count||0)+1};
   S.log.push({p:c.p,n:c.n||"",out:code,at:now}); if(S.log.length>20000) S.log.splice(0,S.log.length-20000);
   // move the run forward
   const r=S.run;
@@ -359,6 +374,18 @@ function startRandom(){
   S.current=n; save(); render(); toast(`Random calls · (${a}) ${p}-XXXX`); dial(S.current);
 }
 $("randStart").addEventListener("click",startRandom);
+// CALL LIST / RANDOM switch: changes what CALL dials next (does not dial by itself)
+$("modeSwitch").addEventListener("click",(e)=>{
+  const m=e.target.closest("button")?.dataset.m; if(!m) return;
+  if(m==="list"){
+    if(!S.activeList||!listById(S.activeList)){ toast("Upload or select a call list first."); return; }
+    S.run={mode:"list",list:S.activeList}; S.current=null; save(); render(); toast(`Using your call list: ${listById(S.activeList).name}`); return;
+  }
+  const a=$("randArea").value.replace(/\D/g,""), p=$("randPrefix").value.replace(/\D/g,"");
+  if(a.length!==3||p.length!==3){ toast("Enter the area code and prefix in RANDOM CALL first."); $("randPanel").classList.remove("collapsed"); $("randArea").focus(); return; }
+  S.rand.area=a; S.rand.prefix=p; S.run={mode:"random",area:a,prefix:p,next:null}; S.current=null;
+  save(); render(); toast(`Using random calls: (${a}) ${p}-XXXX`);
+});
 $("refreshBtn").addEventListener("click",()=>{ save(); location.reload(); });
 ["randArea","randPrefix"].forEach(id=>$(id).addEventListener("input",()=>{ $(id).value=$(id).value.replace(/\D/g,"").slice(0,3); S.rand[id==="randArea"?"area":"prefix"]=$(id).value; save(); randMaskUi(); }));
 
@@ -373,7 +400,7 @@ function startRerun(cat){
 function recallOne(p){
   const x=S.results[p]; if(!x) return;
   const back=S.run?.mode==="single"?S.run.back:S.run;
-  S.run={mode:"single",back}; S.current={p:x.p,n:x.n,list:x.list,src:x.src};
+  S.run={mode:"single",back}; S.current={p:x.p,n:x.n,a:x.a,list:x.list,src:x.src};
   save(); render(); dial(S.current);
 }
 
@@ -395,6 +422,7 @@ function render(){
   $("nowLabel").textContent=cur?"ON THIS CALL — PICK THE RESULT AFTER":"NEXT CALL";
   $("nowName").textContent=nx?(nx.n||"(no name)"):"—";
   $("nowNum").textContent=nx?fmtPhone(nx.p):"—";
+  $("nowAddr").textContent=nx?(nx.a||S.results[nx.p]?.a||""):"";
   const prior=nx&&S.results[nx.p];
   $("nowSub").textContent=!r?(S.lists.length?"Select a list in CALL LISTS.":"Upload a CSV or Excel file in CALL LISTS.")
     :!nx?(r.mode==="rerun"?"Rerun finished.":"This list is finished.")
@@ -409,6 +437,8 @@ function render(){
   $("cancelSingle")?.addEventListener("click",cancelSingle);
   $("stopRandom")?.addEventListener("click",startRandom);
   randMaskUi();
+  const ml=r?.mode==="random"?"random":"list";
+  $("modeSwitch").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.m===ml&&(r?.mode==="random"||r?.mode==="list")));
 
   // lists
   $("lists").innerHTML=S.lists.length?S.lists.map(l=>{
@@ -428,7 +458,7 @@ function render(){
     const rows=all.filter(x=>x.out===k).sort((a,b)=>b.at-a.at);
     $("catBox").innerHTML=`<div class="cat-head"><span class="ct">${OUT[k]} · ${rows.length}</span>`+
       `<button class="btn-rerun" data-rerun="${k}">RERUN ${OUT[k]}</button><button data-dlcat="${k}">CSV</button><button data-dlcatx="${k}">EXCEL</button><button class="btn-del" data-clear="${k}">CLEAR</button></div>`+
-      `<div class="nums">${rows.length?rows.map(x=>`<div class="num-row"><div class="nr-main" data-recall="${esc(x.p)}"><b>${fmtPhone(x.p)}</b>${x.n?`<span>${esc(x.n)}</span>`:""}<small>${fmtTime(x.at)}${x.count>1?` · called ${x.count}×`:""}${listById(x.list)?` · ${esc(listById(x.list).name)}`:x.src?` · ${esc(x.src)}`:""}</small></div>`+
+      `<div class="nums">${rows.length?rows.map(x=>`<div class="num-row"><div class="nr-main" data-recall="${esc(x.p)}"><b>${fmtPhone(x.p)}</b>${x.n?`<span>${esc(x.n)}</span>`:""}${x.a?`<span>${esc(x.a)}</span>`:""}<small>${fmtTime(x.at)}${x.count>1?` · called ${x.count}×`:""}${listById(x.list)?` · ${esc(listById(x.list).name)}`:x.src?` · ${esc(x.src)}`:""}</small></div>`+
         `<button class="nr-call" data-recall="${esc(x.p)}">CALL</button><button class="nr-x" data-rm="${esc(x.p)}">✕</button></div>`).join(""):`<div class="empty">No numbers here yet.</div>`}</div>`;
   }
 }
@@ -462,7 +492,7 @@ $("dlAllXlsx").addEventListener("click",()=>download(null,"xlsx"));
 /* ---------- downloads ---------- */
 function download(cat,type){
   const rows=Object.values(S.results).filter(x=>!cat||x.out===cat).sort((a,b)=>b.at-a.at)
-    .map(x=>({Name:x.n||"",Phone:x.p,Result:OUT[x.out],"Last Called":new Date(x.at).toLocaleString(),"Times Called":x.count||1,List:listById(x.list)?.name||x.src||""}));
+    .map(x=>({Name:x.n||"",Phone:x.p,Address:x.a||"",Result:OUT[x.out],"Last Called":new Date(x.at).toLocaleString(),"Times Called":x.count||1,List:listById(x.list)?.name||x.src||""}));
   if(!rows.length){ toast("Nothing to download yet."); return; }
   const base=`DG-CALL-${cat?OUT[cat].replace(/ /g,"-"):"ALL"}-${new Date().toISOString().slice(0,10)}`;
   if(type==="xlsx"){
