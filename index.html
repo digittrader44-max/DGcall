@@ -2,19 +2,433 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DG CALL</title>
+<link rel="icon" type="image/webp" href="/dg-logo.webp">
+<link rel="apple-touch-icon" href="/dg-logo.webp">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DG CALL">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2a0f4d">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1020;color:#e6ecf8;font-family:system-ui,sans-serif}
-  .box{text-align:center}
-  h1{margin:0;font-size:42px;letter-spacing:4px;color:#65f68f}
-  p{color:#9fb0d3}
+:root{
+  --bg:#090d18;--panel:#131a2a;--panel2:#192238;--border:#293650;
+  --green:#00e6a0;--purple:#9b70ff;--blue:#48a9ff;--red:#ff5577;--yellow:#ffc857;
+  --text:#edf3ff;--muted:#8d9bb5;
+  --gold-light:#fbe08a;--gold-mid:#e3b13a;--gold-dark:#a8780f;--emerald:#0f6b3e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+header{
+  padding:16px;padding-top:max(16px,env(safe-area-inset-top));display:flex;align-items:center;
+  justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:linear-gradient(135deg,#1c0a33,#2a0f4d 55%,#101729);
+  border-bottom:2px solid var(--gold-mid);box-shadow:0 2px 0 var(--emerald);
+}
+.brand{display:flex;align-items:center;gap:10px;font-size:25px;font-weight:900;letter-spacing:2px}
+.brand-logo{
+  width:54px;height:59px;object-fit:contain;
+  filter:drop-shadow(0 1px 0 rgba(255,243,192,.9)) drop-shadow(0 3px 0 #6b4a0c) drop-shadow(0 7px 9px rgba(0,0,0,.65)) drop-shadow(0 0 12px rgba(232,185,49,.55));
+}
+.brand-text{background:linear-gradient(180deg,var(--gold-light),var(--gold-mid) 55%,var(--gold-dark));-webkit-background-clip:text;background-clip:text;color:transparent}
+.status{font-size:12px;color:var(--muted)}
+button,select,input{border:1px solid var(--border);border-radius:8px;background:#0c1424;color:var(--text);padding:10px;font-size:13px;font-family:inherit}
+button{cursor:pointer;font-weight:800;touch-action:manipulation}
+button:disabled{opacity:.4;cursor:not-allowed}
+main{max-width:760px;margin:auto;padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.panel{
+  background:linear-gradient(145deg,var(--panel),#101729);border:1px solid var(--border);border-top:2px solid #6b4a12;
+  border-radius:13px;padding:14px;margin-bottom:13px;box-shadow:0 8px 25px #0005;
+}
+.panel h2{font-size:16px;margin:0 0 13px;display:flex;align-items:center;gap:8px;color:var(--gold-mid);letter-spacing:.5px}
+.panel h2::before{
+  content:"";flex:none;width:28px;height:31px;background:url("/dg-logo.webp") center/contain no-repeat;
+  filter:drop-shadow(0 1px 0 rgba(255,243,192,.8)) drop-shadow(0 2px 0 #6b4a0c) drop-shadow(0 4px 5px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(232,185,49,.45));
+}
+.panel h2 .h2t{flex:1}
+.collapsible h2{cursor:pointer;user-select:none;-webkit-user-select:none;margin-bottom:0}
+.collapsible h2::after{content:"▾";font-size:14px;color:var(--muted)}
+.collapsible:not(.collapsed) h2{margin-bottom:13px}
+.collapsible.collapsed h2::after{content:"▸"}
+.collapsible.collapsed > :not(h2){display:none !important}
+.section-label{color:var(--muted);font-size:10px;font-weight:900;letter-spacing:1px;margin:12px 0 6px}
+.tip{font-size:11px;color:var(--muted);line-height:1.45}
+
+/* Call lists */
+.upload{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.upload label.up-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:10px;font-weight:900;font-size:13px;background:linear-gradient(180deg,var(--gold-light),var(--gold-mid));color:#2a1a00;cursor:pointer}
+.upload input[type=file]{display:none}
+.lists{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.list-row{display:flex;align-items:center;gap:8px;padding:9px;border-radius:10px;background:#0b1424;border:1px solid var(--border)}
+.list-row.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset;background:#0e2a26}
+.list-row .lr-main{flex:1;min-width:0}
+.list-row .lr-main b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-row .lr-main small{font-size:10px;color:var(--muted)}
+.list-row button{padding:8px 10px;font-size:11px}
+.btn-use{background:var(--green);color:#06130f;border:0}
+.btn-del{background:#421b2a;color:#ff9bad;border-color:#733147}
+.empty{font-size:12px;color:var(--muted);padding:8px 0}
+
+/* Dialer */
+.mode-tag{display:inline-block;font-size:10px;font-weight:900;letter-spacing:1px;padding:4px 9px;border-radius:8px;background:#1f2b47;color:var(--gold-light)}
+.mode-tag.rerun{background:#3d2a00;color:var(--yellow)}
+.mode-tag.single{background:#1b2f4d;color:var(--blue)}
+.now-card{margin:10px 0;padding:16px;border-radius:13px;background:#0b1424;border:1px solid var(--border);text-align:center}
+.now-card small{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;font-weight:900}
+.now-name{font-size:18px;font-weight:900;margin-top:6px;overflow-wrap:anywhere}
+.now-num{font-size:28px;font-weight:900;color:var(--green);margin-top:4px;letter-spacing:1px}
+.now-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.now-card.oncall{border-color:var(--green);box-shadow:0 0 14px #00e6a033}
+.call-btn{width:100%;min-height:58px;border-radius:14px;border:0;font-size:18px;letter-spacing:2px;background:linear-gradient(180deg,#22e39a,#0f9e6b);color:#04170e}
+.out-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.out-btn{min-height:62px;border-radius:13px;border:0;font-size:14px;letter-spacing:1px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.out-btn small{font-size:9px;font-weight:700;opacity:.85;letter-spacing:.3px}
+.o-vm{background:linear-gradient(180deg,#8e5cff,#5b3bd6)}
+.o-cb{background:linear-gradient(180deg,#48a9ff,#1f6fc2)}
+.o-in{background:linear-gradient(180deg,#22e39a,#0f9e6b);color:#04170e}
+.o-ni{background:linear-gradient(180deg,#ff6b81,#c2304a)}
+.dial-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.dial-row button{flex:1;font-size:11px}
+
+/* Results */
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{padding:12px 10px;border-radius:12px;background:#0b1424;border:1px solid var(--border);text-align:left;display:flex;flex-direction:column;gap:3px}
+.tile small{font-size:10px;font-weight:900;letter-spacing:1px;color:var(--muted)}
+.tile b{font-size:26px}
+.tile.sel{box-shadow:0 0 0 2px var(--gold-mid) inset}
+.t-vm b{color:#b99bff}.t-cb b{color:var(--blue)}.t-in b{color:var(--green)}.t-ni b{color:var(--red)}
+.total-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:10px 2px}
+.total-row b{color:var(--text)}
+.cat-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.cat-head .ct{flex:1;font-size:13px;font-weight:900;color:var(--gold-light)}
+.cat-head button{padding:8px 10px;font-size:11px}
+.btn-rerun{background:linear-gradient(180deg,var(--gold-light),var(--gold-mid));color:#2a1a00;border:0}
+.nums{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:420px;overflow:auto}
+.num-row{display:flex;align-items:center;gap:8px;padding:9px;border-radius:10px;background:#0b1424;border:1px solid var(--border)}
+.num-row .nr-main{flex:1;min-width:0;cursor:pointer}
+.num-row .nr-main b{display:block;font-size:14px;color:var(--green)}
+.num-row .nr-main span{display:block;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.num-row .nr-main small{font-size:10px;color:var(--muted)}
+.num-row .nr-call{padding:8px 12px;font-size:11px;background:var(--green);color:#06130f;border:0}
+.num-row .nr-x{padding:8px 10px;font-size:11px;background:#421b2a;color:#ff9bad;border-color:#733147}
+.dl-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.dl-row button{flex:1;font-size:11px}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2b47;border:1px solid var(--gold-mid);color:var(--text);padding:10px 16px;border-radius:12px;font-size:12px;font-weight:800;z-index:50;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
 </style>
 </head>
 <body>
-  <div class="box">
-    <h1>DG CALL</h1>
-    <p>Dialer is live. Design coming next.</p>
+<header>
+  <div class="brand"><img class="brand-logo" src="/dg-logo.webp" alt="DG"><span class="brand-text">CALL</span></div>
+  <div class="status" id="hdrStatus">—</div>
+</header>
+<main>
+
+<section class="panel collapsible" id="dialPanel">
+  <h2><span class="h2t">DIALER</span></h2>
+  <div><span class="mode-tag" id="modeTag">NO LIST SELECTED</span></div>
+  <div class="now-card" id="nowCard">
+    <small id="nowLabel">NEXT CALL</small>
+    <div class="now-name" id="nowName">—</div>
+    <div class="now-num" id="nowNum">—</div>
+    <div class="now-sub" id="nowSub">Upload a CSV or Excel file in CALL LISTS.</div>
   </div>
+  <button class="call-btn" id="callBtn">CALL</button>
+  <div class="out-grid">
+    <button class="out-btn o-vm" data-out="VM">VOICEMAIL<small>save + call next</small></button>
+    <button class="out-btn o-cb" data-out="CB">CALLBACK<small>save + call next</small></button>
+    <button class="out-btn o-in" data-out="IN">INTERESTED<small>save + call next</small></button>
+    <button class="out-btn o-ni" data-out="NI">NOT INTERESTED<small>save + call next</small></button>
+  </div>
+  <div class="dial-row" id="dialExtra"></div>
+</section>
+
+<section class="panel collapsible" id="listPanel">
+  <h2><span class="h2t">CALL LISTS</span></h2>
+  <div class="upload">
+    <label class="up-btn" for="fileIn">UPLOAD CSV / EXCEL</label>
+    <input type="file" id="fileIn" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+  </div>
+  <div class="lists" id="lists"></div>
+</section>
+
+<section class="panel collapsible" id="resPanel">
+  <h2><span class="h2t">RESULTS</span></h2>
+  <div class="tiles" id="tiles"></div>
+  <div class="total-row"><span>TOTAL CALLS MADE: <b id="totCalls">0</b></span><span>NUMBERS WITH A RESULT: <b id="totNums">0</b></span></div>
+  <div id="catBox"></div>
+  <div class="dl-row">
+    <button id="dlAllCsv">DOWNLOAD ALL · CSV</button>
+    <button id="dlAllXlsx">DOWNLOAD ALL · EXCEL</button>
+  </div>
+</section>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+const OUT={VM:"VOICEMAIL",CB:"CALLBACK",IN:"INTERESTED",NI:"NOT INTERESTED"};
+const OUT_CLS={VM:"t-vm",CB:"t-cb",IN:"t-in",NI:"t-ni"};
+const KEY="dgcall_v1";
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ---------- saved data (on this phone) ---------- */
+let S=load();
+function blank(){ return {lists:[],activeList:null,pos:{},results:{},log:[],run:null,current:null,openCat:null}; }
+function load(){ try{ const x=JSON.parse(localStorage.getItem(KEY)); return x&&x.lists?Object.assign(blank(),x):blank(); }catch(_){ return blank(); } }
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(S)); }
+  catch(_){ toast("Phone storage is full — delete an old list or download and clear results."); }
+}
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("show"),2600); }
+
+/* ---------- phone numbers ---------- */
+function normPhone(v){
+  let s=String(v??"").trim(); if(!s) return "";
+  if(/e\+?\d+$/i.test(s)&&!isNaN(Number(s))) s=Number(s).toFixed(0);   // Excel scientific notation
+  const plus=s.startsWith("+");
+  const d=s.replace(/\D/g,"");
+  if(d.length<7||d.length>15) return "";
+  if(plus) return "+"+d;
+  if(d.length===10) return "+1"+d;
+  if(d.length===11&&d[0]==="1") return "+"+d;
+  return d;
+}
+function fmtPhone(p){
+  const m=/^\+1(\d{3})(\d{3})(\d{4})$/.exec(p||"");
+  return m?`(${m[1]}) ${m[2]}-${m[3]}`:(p||"—");
+}
+function fmtTime(t){ if(!t) return ""; const d=new Date(t); return d.toLocaleDateString([], {month:"short",day:"numeric"})+" · "+d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}); }
+
+/* ---------- reading CSV / Excel ---------- */
+function parseCsv(text){
+  const rows=[]; let row=[], cell="", q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else q=false; } else cell+=c; }
+    else if(c==='"') q=true;
+    else if(c===","||c===";"||c==="\t"){ row.push(cell); cell=""; }
+    else if(c==="\n"||c==="\r"){ if(c==="\r"&&text[i+1]==="\n") i++; row.push(cell); rows.push(row); row=[]; cell=""; }
+    else cell+=c;
+  }
+  if(cell!==""||row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r=>r.some(x=>String(x).trim()!==""));
+}
+async function readRows(file){
+  const name=file.name.toLowerCase();
+  if(window.XLSX){
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",raw:false});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""}).filter(r=>r.some(x=>String(x).trim()!==""));
+  }
+  if(name.endsWith(".csv")) return parseCsv(await file.text());
+  throw new Error("Excel reader didn't load — check your internet and try again, or upload a CSV.");
+}
+function rowsToContacts(rows){
+  if(!rows.length) return [];
+  const head=rows[0].map(x=>String(x).trim().toLowerCase());
+  const hasHeader=head.some(h=>/[a-z]/.test(h))&&!head.some(h=>normPhone(h));
+  const body=hasHeader?rows.slice(1):rows;
+  const ncol=Math.max(...rows.map(r=>r.length));
+  let pc=-1;
+  if(hasHeader) pc=head.findIndex(h=>/phone|mobile|cell|tel|number|contact|whatsapp/.test(h));
+  if(pc<0){   // the column where most values look like phone numbers
+    let best=0;
+    for(let c=0;c<ncol;c++){ const n=body.filter(r=>normPhone(r[c])).length; if(n>best){ best=n; pc=c; } }
+  }
+  if(pc<0) return [];
+  let nameCols=[];
+  if(hasHeader){
+    const full=head.findIndex((h,i)=>i!==pc&&/^(full ?name|name|contact name|client|customer)$/.test(h));
+    if(full>=0) nameCols=[full];
+    else{
+      const f=head.findIndex((h,i)=>i!==pc&&/first/.test(h)), l=head.findIndex((h,i)=>i!==pc&&/last|surname/.test(h));
+      nameCols=[f,l].filter(i=>i>=0);
+      if(!nameCols.length){ const any=head.findIndex((h,i)=>i!==pc&&/name/.test(h)); if(any>=0) nameCols=[any]; }
+    }
+  }
+  if(!nameCols.length){   // first text column that isn't the phone
+    for(let c=0;c<ncol;c++){ if(c!==pc&&body.some(r=>/[a-z]/i.test(String(r[c]||"")))){ nameCols=[c]; break; } }
+  }
+  const seen=new Set(), out=[];
+  for(const r of body){
+    const p=normPhone(r[pc]); if(!p||seen.has(p)) continue; seen.add(p);
+    out.push({p,n:nameCols.map(i=>String(r[i]??"").trim()).filter(Boolean).join(" ")});
+  }
+  return out;
+}
+$("fileIn").addEventListener("change",async(e)=>{
+  const file=e.target.files[0]; e.target.value=""; if(!file) return;
+  try{
+    const contacts=rowsToContacts(await readRows(file));
+    if(!contacts.length){ toast("No phone numbers found in that file."); return; }
+    const id="L"+Date.now().toString(36);
+    S.lists.push({id,name:file.name.replace(/\.(csv|xlsx|xls)$/i,""),at:Date.now(),contacts});
+    S.pos[id]=0;
+    if(!S.activeList) useList(id,true);
+    save(); render();
+    toast(`Uploaded ${contacts.length} numbers from ${file.name}`);
+  }catch(err){ toast(err.message||"Couldn't read that file."); }
+});
+
+/* ---------- dialing ---------- */
+const listById=(id)=>S.lists.find(l=>l.id===id);
+function dial(c){ if(!c||!c.p) return; window.location.href="tel:"+c.p; }
+// the contact the current run would call next (does not move anything)
+function peekNext(){
+  const r=S.run; if(!r) return null;
+  if(r.mode==="list"){ const L=listById(r.list); if(!L) return null; const i=S.pos[r.list]||0; return i<L.contacts.length?{...L.contacts[i],list:L.id}:null; }
+  if(r.mode==="rerun"){ while(r.i<r.queue.length){ const x=S.results[r.queue[r.i]]; if(x) return {p:x.p,n:x.n,list:x.list}; r.i++; } return null; }
+  return null;
+}
+function useList(id,silent){
+  S.activeList=id; S.run={mode:"list",list:id}; S.current=null;
+  if(!silent){ save(); render(); toast(`Dialing list: ${listById(id)?.name}`); }
+}
+$("callBtn").addEventListener("click",()=>{
+  if(!S.current){ const n=peekNext(); if(!n){ toast(S.run?"Nothing left to call here.":"Upload or select a call list first."); return; } S.current=n; }
+  save(); render(); dial(S.current);
+});
+document.querySelectorAll(".out-btn").forEach(b=>b.addEventListener("click",()=>outcome(b.dataset.out)));
+function outcome(code){
+  const c=S.current;
+  if(!c){ toast("Tap CALL first — then pick the result after the call."); return; }
+  const now=Date.now(), prev=S.results[c.p];
+  S.results[c.p]={p:c.p,n:c.n||prev?.n||"",list:c.list||prev?.list||"",out:code,at:now,count:(prev?.count||0)+1};
+  S.log.push({p:c.p,n:c.n||"",out:code,at:now}); if(S.log.length>20000) S.log.splice(0,S.log.length-20000);
+  // move the run forward
+  const r=S.run;
+  if(r?.mode==="list") S.pos[r.list]=(S.pos[r.list]||0)+1;
+  else if(r?.mode==="rerun") r.i++;
+  let next=null;
+  if(r?.mode==="single"){ S.run=r.back||null; S.current=null; }
+  else{ next=peekNext(); S.current=next; }
+  save(); render();
+  toast(`${fmtPhone(c.p)} saved to ${OUT[code]}`+(next?" · calling next":r?.mode==="single"?"":" · finished"));
+  if(next) dial(next);
+}
+function stopRerun(){ const r=S.run; if(r?.mode!=="rerun") return; S.run=S.activeList?{mode:"list",list:S.activeList}:null; S.current=null; save(); render(); toast("Rerun stopped — back to your call list."); }
+function cancelSingle(){ const r=S.run; if(r?.mode!=="single") return; S.run=r.back||null; S.current=null; save(); render(); }
+function startRerun(cat){
+  const q=Object.values(S.results).filter(x=>x.out===cat).sort((a,b)=>a.at-b.at).map(x=>x.p);
+  if(!q.length){ toast(`No ${OUT[cat]} numbers to rerun.`); return; }
+  S.run={mode:"rerun",cat,queue:q,i:0}; S.current=peekNext();
+  save(); render(); toast(`Rerunning ${OUT[cat]} · ${q.length} numbers`); dial(S.current);
+}
+function recallOne(p){
+  const x=S.results[p]; if(!x) return;
+  const back=S.run?.mode==="single"?S.run.back:S.run;
+  S.run={mode:"single",back}; S.current={p:x.p,n:x.n,list:x.list};
+  save(); render(); dial(S.current);
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  // header
+  const lt=S.lists.reduce((s,l)=>s+l.contacts.length,0);
+  $("hdrStatus").textContent=`${S.lists.length} list${S.lists.length===1?"":"s"} · ${lt} numbers · ${S.log.length} calls`;
+  // dialer
+  const r=S.run, cur=S.current, nx=cur||peekNext();
+  const tag=$("modeTag");
+  tag.className="mode-tag"+(r?.mode==="rerun"?" rerun":r?.mode==="single"?" single":"");
+  if(!r) tag.textContent=S.lists.length?"NO LIST SELECTED":"NO LIST UPLOADED";
+  else if(r.mode==="list"){ const L=listById(r.list); tag.textContent=L?`LIST · ${L.name} · ${Math.min(S.pos[r.list]||0,L.contacts.length)}/${L.contacts.length} done`:"LIST DELETED"; }
+  else if(r.mode==="rerun") tag.textContent=`RERUN · ${OUT[r.cat]} · ${Math.min(r.i,r.queue.length)}/${r.queue.length} done`;
+  else tag.textContent="RECALL · ONE NUMBER";
+  $("nowCard").classList.toggle("oncall",!!cur);
+  $("nowLabel").textContent=cur?"ON THIS CALL — PICK THE RESULT AFTER":"NEXT CALL";
+  $("nowName").textContent=nx?(nx.n||"(no name)"):"—";
+  $("nowNum").textContent=nx?fmtPhone(nx.p):"—";
+  const prior=nx&&S.results[nx.p];
+  $("nowSub").textContent=!r?(S.lists.length?"Select a list in CALL LISTS.":"Upload a CSV or Excel file in CALL LISTS.")
+    :!nx?(r.mode==="rerun"?"Rerun finished.":"This list is finished.")
+    :prior?`Last result: ${OUT[prior.out]} · ${fmtTime(prior.at)}`:"Not called yet";
+  $("callBtn").textContent=cur?"CALL AGAIN":"CALL";
+  document.querySelectorAll(".out-btn").forEach(b=>b.disabled=!cur);
+  const ex=$("dialExtra"); ex.innerHTML="";
+  if(r?.mode==="rerun") ex.innerHTML=`<button id="stopRerun">STOP RERUN · BACK TO LIST</button>`;
+  if(r?.mode==="single") ex.innerHTML=`<button id="cancelSingle">CANCEL RECALL</button>`;
+  $("stopRerun")?.addEventListener("click",stopRerun);
+  $("cancelSingle")?.addEventListener("click",cancelSingle);
+
+  // lists
+  $("lists").innerHTML=S.lists.length?S.lists.map(l=>{
+    const done=Math.min(S.pos[l.id]||0,l.contacts.length), on=S.activeList===l.id;
+    return `<div class="list-row${on?" active":""}"><div class="lr-main"><b>${esc(l.name)}</b><small>${l.contacts.length} numbers · ${done} called · uploaded ${fmtTime(l.at)}</small></div>`+
+      `${on?`<button data-restart="${l.id}">START OVER</button>`:`<button class="btn-use" data-use="${l.id}">USE</button>`}<button class="btn-del" data-del="${l.id}">DELETE</button></div>`;
+  }).join(""):`<div class="empty">No lists yet. Upload a CSV or Excel file with a phone number column (a name column is optional).</div>`;
+
+  // results
+  const all=Object.values(S.results), cnt={VM:0,CB:0,IN:0,NI:0};
+  all.forEach(x=>cnt[x.out]=(cnt[x.out]||0)+1);
+  $("tiles").innerHTML=Object.keys(OUT).map(k=>`<button class="tile ${OUT_CLS[k]}${S.openCat===k?" sel":""}" data-cat="${k}"><small>${OUT[k]}</small><b>${cnt[k]}</b></button>`).join("");
+  $("totCalls").textContent=S.log.length; $("totNums").textContent=all.length;
+  const k=S.openCat;
+  if(!k){ $("catBox").innerHTML=`<div class="tip" style="margin-top:6px">Tap a box to see its numbers. Tap a number to call it again, or RERUN to call through only that list.</div>`; }
+  else{
+    const rows=all.filter(x=>x.out===k).sort((a,b)=>b.at-a.at);
+    $("catBox").innerHTML=`<div class="cat-head"><span class="ct">${OUT[k]} · ${rows.length}</span>`+
+      `<button class="btn-rerun" data-rerun="${k}">RERUN ${OUT[k]}</button><button data-dlcat="${k}">CSV</button><button data-dlcatx="${k}">EXCEL</button><button class="btn-del" data-clear="${k}">CLEAR</button></div>`+
+      `<div class="nums">${rows.length?rows.map(x=>`<div class="num-row"><div class="nr-main" data-recall="${esc(x.p)}"><b>${fmtPhone(x.p)}</b>${x.n?`<span>${esc(x.n)}</span>`:""}<small>${fmtTime(x.at)}${x.count>1?` · called ${x.count}×`:""}${listById(x.list)?` · ${esc(listById(x.list).name)}`:""}</small></div>`+
+        `<button class="nr-call" data-recall="${esc(x.p)}">CALL</button><button class="nr-x" data-rm="${esc(x.p)}">✕</button></div>`).join(""):`<div class="empty">No numbers here yet.</div>`}</div>`;
+  }
+}
+
+/* ---------- taps on lists and results ---------- */
+$("lists").addEventListener("click",(e)=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.use) useList(b.dataset.use);
+  else if(b.dataset.restart){ if(confirm("Start this list over from the first number?")){ S.pos[b.dataset.restart]=0; S.current=null; save(); render(); } }
+  else if(b.dataset.del){
+    const L=listById(b.dataset.del); if(!L||!confirm(`Delete the list "${L.name}"? Your saved results stay in RESULTS.`)) return;
+    S.lists=S.lists.filter(l=>l.id!==L.id); delete S.pos[L.id];
+    if(S.activeList===L.id){ S.activeList=S.lists[0]?.id||null; S.run=S.activeList?{mode:"list",list:S.activeList}:null; S.current=null; }
+    save(); render(); toast("List deleted.");
+  }
+});
+$("tiles").addEventListener("click",(e)=>{ const b=e.target.closest("[data-cat]"); if(!b) return; S.openCat=S.openCat===b.dataset.cat?null:b.dataset.cat; save(); render(); });
+$("catBox").addEventListener("click",(e)=>{
+  const t=e.target.closest("[data-recall],[data-rm],[data-rerun],[data-clear],[data-dlcat],[data-dlcatx]"); if(!t) return;
+  const d=t.dataset;
+  if(d.rerun) startRerun(d.rerun);
+  else if(d.recall) recallOne(d.recall);
+  else if(d.rm){ if(confirm(`Remove ${fmtPhone(d.rm)} from results?`)){ delete S.results[d.rm]; if(S.current?.p===d.rm&&S.run?.mode==="single") cancelSingle(); save(); render(); } }
+  else if(d.clear){ if(confirm(`Clear all ${OUT[d.clear]} numbers? This can't be undone.`)){ Object.values(S.results).filter(x=>x.out===d.clear).forEach(x=>delete S.results[x.p]); save(); render(); toast(`${OUT[d.clear]} cleared.`); } }
+  else if(d.dlcat) download(d.dlcat,"csv");
+  else if(d.dlcatx) download(d.dlcatx,"xlsx");
+});
+$("dlAllCsv").addEventListener("click",()=>download(null,"csv"));
+$("dlAllXlsx").addEventListener("click",()=>download(null,"xlsx"));
+
+/* ---------- downloads ---------- */
+function download(cat,type){
+  const rows=Object.values(S.results).filter(x=>!cat||x.out===cat).sort((a,b)=>b.at-a.at)
+    .map(x=>({Name:x.n||"",Phone:x.p,Result:OUT[x.out],"Last Called":new Date(x.at).toLocaleString(),"Times Called":x.count||1,List:listById(x.list)?.name||""}));
+  if(!rows.length){ toast("Nothing to download yet."); return; }
+  const base=`DG-CALL-${cat?OUT[cat].replace(/ /g,"-"):"ALL"}-${new Date().toISOString().slice(0,10)}`;
+  if(type==="xlsx"){
+    if(!window.XLSX){ toast("Excel export didn't load — use CSV."); return; }
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Results"); XLSX.writeFile(wb,base+".xlsx"); return;
+  }
+  const cols=Object.keys(rows[0]);
+  const csv=[cols.join(",")].concat(rows.map(r=>cols.map(c=>`"${String(r[c]).replace(/"/g,'""')}"`).join(","))).join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=base+".csv";
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+}
+
+/* ---------- drop-down panels (remembered) ---------- */
+document.querySelectorAll(".collapsible").forEach(p=>{
+  const key="dgcall_panel_"+p.id;
+  try{ if(localStorage.getItem(key)==="0") p.classList.add("collapsed"); }catch(_){}
+  p.querySelector("h2").addEventListener("click",()=>{ p.classList.toggle("collapsed"); try{ localStorage.setItem(key,p.classList.contains("collapsed")?"0":"1"); }catch(_){} });
+});
+
+if(!S.run&&S.activeList&&listById(S.activeList)) S.run={mode:"list",list:S.activeList};
+render();
+</script>
 </body>
 </html>
